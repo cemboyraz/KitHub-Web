@@ -1,0 +1,10 @@
+services:
+  db:
+    image: postgres:15
+    container_name: kithub-db
+    environment:
+      POSTGRES_USER: cem
+      POSTGRES_PASSWORD: kithub2026
+      POSTGRES_DB: kithub
+    ports:
+      - "5432:5432"
