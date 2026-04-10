@@ -3,9 +3,12 @@ package com.kithub.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import javax.management.relation.Role;
+import java.util.List;
+
 @Entity
 @Table(name = "users")
-@Data // Getter, Setter ve ToString için şart
+@Data
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,7 +23,14 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    private String role;
-    private Integer adminLevel;
-    private String adminSecretCode;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role;
+
+    // Kullanıcının yorumları ve okuma listesi silindiğinde DB'den de silinmesi için CascadeType.ALL eklendi
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Comment> comments;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ReadingStatus> readingStatuses;
 }

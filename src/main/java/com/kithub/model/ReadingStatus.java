@@ -5,12 +5,19 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "recommendations")
+@Table(name = "reading_statuses")
 @Data
-public class AIRecommendation {
+public class ReadingStatus {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Status status;
+
+    private LocalDateTime startDate;
+    private LocalDateTime finishDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -19,13 +26,4 @@ public class AIRecommendation {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "book_id", nullable = false)
     private Book book;
-
-    private Double matchScore;
-
-    private String recommendationSource;
-
-    @Column(length = 1000)
-    private String aiReasoning; // Gemini'nin "bu kitabı sana şu yüzden önerdim" açıklaması
-
-    private LocalDateTime generatedAt = LocalDateTime.now();
 }

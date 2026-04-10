@@ -1,7 +1,5 @@
 package com.kithub.model;
 
-
-
 import jakarta.persistence.*;
 import lombok.Data;
 import java.util.List;
@@ -17,7 +15,7 @@ public class Category {
 
     @Column(unique = true, nullable = false)
     private String name;
-    // Bir kategoride birçok kitap olabilir (One-to-Many)
-    @OneToMany(mappedBy = "category")
+
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
     private List<Book> books;
 }
