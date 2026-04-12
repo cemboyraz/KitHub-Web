@@ -2,9 +2,8 @@ package com.kithub.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-
-import javax.management.relation.Role;
 import java.util.List;
+// javax.management.relation.Role SİLİNDİ! Kendi Role'ümüzü kullanıyoruz.
 
 @Entity
 @Table(name = "users")
@@ -27,10 +26,10 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
-    // Kullanıcının yorumları ve okuma listesi silindiğinde DB'den de silinmesi için CascadeType.ALL eklendi
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments;
 
+    // DÜZELTİLDİ: UserBook köprü tablosuna bağlandı
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ReadingStatus> readingStatuses;
+    private List<UserBook> userBooks;
 }
