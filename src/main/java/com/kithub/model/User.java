@@ -29,7 +29,6 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments;
 
-    // DÜZELTİLDİ: UserBook köprü tablosuna bağlandı
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserBook> userBooks;
 }

@@ -1,10 +1,31 @@
 package com.kithub.model;
 
-import jakarta.persistence.*;
-import lombok.Data;
-import java.util.List;
-
-
 public enum Category {
-
+    FICTION,
+    SCIENCE_FICTION,
+    FANTASY,
+    MYSTERY,
+    THRILLER,
+    ROMANCE,
+    HISTORICAL_FICTION,
+    HORROR,
+    NON_FICTION,
+    BIOGRAPHY,
+    HISTORY,
+    PHILOSOPHY,
+    PSYCHOLOGY,
+    SELF_HELP,
+    BUSINESS_ECONOMICS,
+    SCIENCE,
+    RELIGION_MYTHOLOGY,
+    TRAVEL,
+    SOFTWARE_TECHNOLOGY,
+    EDUCATION_ACADEMIC,
+    ART_DESIGN,
+    HEALTH_FITNESS,
+    COOKING,
+    POETRY,
+    CLASSICS,
+    COMIC_MANGA,
+    CHILDREN
 }

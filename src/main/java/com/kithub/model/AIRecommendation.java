@@ -25,7 +25,7 @@ public class AIRecommendation {
     private String recommendationSource;
 
     @Column(length = 1000)
-    private String aiReasoning; // Gemini'nin "bu kitabı sana şu yüzden önerdim" açıklaması
+    private String aiReasoning; // Gemini'nin açıklaması
 
     private LocalDateTime generatedAt = LocalDateTime.now();
 }

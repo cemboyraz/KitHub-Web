@@ -20,8 +20,9 @@ public class UserBook {
     @JoinColumn(name = "book_id", nullable = false)
     private Book book;
 
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ReadingStatus status; // Enum'ı burada kullanıyoruz
+    private ReadingStatus status;
     private LocalDateTime addedAt = LocalDateTime.now();
 }

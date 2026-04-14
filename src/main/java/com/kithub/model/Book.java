@@ -12,6 +12,10 @@ public class Book {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // google apiden gelen gibi bişey bu
+    @Column(unique = true)
+    private String googleBooksId;
+
     private String title;
     private String author;
     private String isbn;
@@ -25,7 +29,6 @@ public class Book {
     private String language;
     private String imageUrl;
 
-    // Performans için puanlama verileri
     private Float averageRating = 0.0f;
     private Integer totalReviews = 0;
 
