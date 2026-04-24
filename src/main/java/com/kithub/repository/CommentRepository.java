@@ -11,9 +11,8 @@ import java.util.List;
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Long> {
 
-    // Bir kitabın detay sayfasına girildiğinde o kitabın altındaki tüm yorumları listele
+
     List<Comment> findByBook(Book book);
 
-    // Kullanıcı bir kitaba daha önce yorum yapmış mı diye kontrol et bir kitaba 2 defa puan olamz
     boolean existsByUserAndBook(User user, Book book);
 }

@@ -12,12 +12,12 @@ public class Book {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // google apiden gelen gibi bişey bu
     @Column(unique = true)
     private String googleBooksId;
 
     private String title;
     private String author;
+    private String category;
     private String isbn;
 
     @Column(length = 2000)
@@ -34,9 +34,6 @@ public class Book {
 
     @ElementCollection
     private List<String> tags;
-
-    @Enumerated(EnumType.STRING)
-    private Category category;
 
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments;

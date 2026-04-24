@@ -9,11 +9,11 @@ import java.util.Optional;
 
 public interface AIRecommendationRepository extends JpaRepository<AIRecommendation, Long> {
 
-    // KOTA KURALI: Kullanıcı gece 00:00'dan sonra kaç kez öneri almış?
-    // Eğer bu sayı 1 ise, Service katmanında "Hata" fırlatacağız.
+    List<AIRecommendation> findByUserId(Long userId);
+
     long countByUserAndGeneratedAtAfter(User user, LocalDateTime startOfDay);
 
-    // Bu listeyi çekip, içindeki kitapları Gemini'ye bunları önermee diyeceğiz.
+    // 3. Gemini'ye "bunları bir daha önerme" demek için kullanıcının geçmişini çekme
     List<AIRecommendation> findByUser(User user);
 
     Optional<AIRecommendation> findFirstByUserOrderByGeneratedAtDesc(User user);

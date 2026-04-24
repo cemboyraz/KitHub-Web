@@ -1,12 +1,13 @@
 package com.kithub.dto;
 
-import com.kithub.model.Category;
+
 
 public record BookResponse(
         Long id,
+        String googleBooksId,
         String title,
         String author,
-        Category category,
         String imageUrl,
+        String category,
         Float averageRating
 ) {}
