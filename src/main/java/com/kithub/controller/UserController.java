@@ -2,11 +2,15 @@ package com.kithub.controller;
 
 import com.kithub.dto.UserResponse;
 import com.kithub.model.AIRecommendation;
+import com.kithub.model.User;
 import com.kithub.model.UserBook;
+import com.kithub.repository.UserRepository; // Bunu ekledik
 import com.kithub.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,31 +21,42 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final UserRepository userRepository;
 
-    @GetMapping("/{userId}/profile")
-    public ResponseEntity<UserResponse> getUserProfile(@PathVariable Long userId) {
-        return ResponseEntity.ok(userService.getUserProfile(userId));
+    @GetMapping("/me/profile")
+    public ResponseEntity<UserResponse> getMyProfile(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı"));
+
+        return ResponseEntity.ok(userService.getUserProfile(user.getId()));
     }
 
-    @GetMapping("/{userId}/library")
-    public ResponseEntity<List<UserBook>> getUserLibrary(@PathVariable Long userId) {
-        return ResponseEntity.ok(userService.getUserLibrary(userId));
+    // listemi getir
+    @GetMapping("/me/library")
+    public ResponseEntity<List<UserBook>> getMyLibrary(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı"));
+
+        return ResponseEntity.ok(userService.getUserLibrary(user.getId()));
     }
 
-    @GetMapping("/getusers")
-    public ResponseEntity<List>getAllUsers(){
+    @GetMapping("/me/recommendations")
+    public ResponseEntity<List<AIRecommendation>> getMyRecommendations(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı"));
+
+        return ResponseEntity.ok(userService.getUserRecommendations(user.getId()));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/all")
+    public ResponseEntity<List<User>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
-    }
-
-    @GetMapping("/{userId}/recommendations")
-    public ResponseEntity<List<AIRecommendation>> getUserRecommendations(@PathVariable Long userId) {
-        return ResponseEntity.ok(userService.getUserRecommendations(userId));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{userId}/ban")
     public ResponseEntity<String> banUser(@PathVariable Long userId) {
-        String result = userService.banUser(userId);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(userService.banUser(userId));
     }
 }
