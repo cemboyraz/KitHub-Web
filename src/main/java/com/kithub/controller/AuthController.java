@@ -1,5 +1,6 @@
 package com.kithub.controller;
 
+import com.kithub.dto.LoginRequest;
 import com.kithub.dto.RegisterRequest;
 import com.kithub.service.AuthService;
 import lombok.RequiredArgsConstructor;
@@ -20,5 +21,10 @@ public class AuthController {
     public ResponseEntity<String> register(@RequestBody RegisterRequest request) {
         String message = authService.register(request);
         return ResponseEntity.ok(message);
+    }
+    @PostMapping("/login")
+    public ResponseEntity<String> login(@RequestBody LoginRequest request) {
+        String token = authService.login(request);
+        return ResponseEntity.ok(token);
     }
 }

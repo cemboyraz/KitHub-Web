@@ -30,6 +30,9 @@ public class UserService {
                 user.getRole()
         );
     }
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
 
     @Transactional(readOnly = true)
     public List<UserBook> getUserLibrary(Long userId) {

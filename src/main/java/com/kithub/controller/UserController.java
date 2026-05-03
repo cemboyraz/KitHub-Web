@@ -28,6 +28,11 @@ public class UserController {
         return ResponseEntity.ok(userService.getUserLibrary(userId));
     }
 
+    @GetMapping("/getusers")
+    public ResponseEntity<List>getAllUsers(){
+        return ResponseEntity.ok(userService.getAllUsers());
+    }
+
     @GetMapping("/{userId}/recommendations")
     public ResponseEntity<List<AIRecommendation>> getUserRecommendations(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.getUserRecommendations(userId));
