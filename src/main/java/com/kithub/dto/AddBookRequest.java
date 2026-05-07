@@ -1,12 +1,11 @@
 package com.kithub.dto;
 
-public record CommentRequest(
+public record AddBookRequest(
         String googleBooksId,
         String title,
         String author,
-        String summary,
+        String summary,    // Veritabanına kaydetmek için şart
         String imageUrl,
         String category,
-        String text,
-        int starCount
+        String status
 ) {}

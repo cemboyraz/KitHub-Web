@@ -1,5 +1,6 @@
 package com.kithub.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -14,6 +15,7 @@ public class AIRecommendation {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -25,7 +27,7 @@ public class AIRecommendation {
     private String recommendationSource;
 
     @Column(length = 1000)
-    private String aiReasoning; // Gemini'nin açıklaması
+    private String aiReasoning;
 
     private LocalDateTime generatedAt = LocalDateTime.now();
 }

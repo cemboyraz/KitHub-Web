@@ -24,17 +24,16 @@ public class UserBookService {
         this.bookService = bookService;
     }
 
-
     @Transactional
-    public UserBook addOrUpdateLibrary(Long userId, String googleId, String title, String author, String summary, String imageUrl, String category, ReadingStatus status) { // <-- Category String oldu!
+    public UserBook addOrUpdateLibrary(String email, String googleId, String title, String author, String summary, String imageUrl, String category, ReadingStatus status) {
 
-        User user = userRepository.findById(userId)
+        // userId yerine email ile güvenli sorgu
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı!"));
-
 
         Book savedBook = bookService.saveBookIfNotExists(googleId, title, author, summary, imageUrl, category);
 
-        return userBookRepository.findByUserAndBook(user,savedBook)
+        return userBookRepository.findByUserAndBook(user, savedBook)
                 .map(existingRecord -> {
                     existingRecord.setStatus(status);
                     return userBookRepository.save(existingRecord);

@@ -1,11 +1,13 @@
 package com.kithub.controller;
 
-import com.kithub.dto.UserBookRequest; // DTO'muz burada!
+import com.kithub.dto.UserBookRequest;
 import com.kithub.model.UserBook;
 import com.kithub.service.UserBookService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,14 +17,14 @@ public class UserBookController {
 
     private final UserBookService userBookService;
 
-    @PostMapping("/user/{userId}/add")
+    // URL'den {userId} silindi. Başkasının adına kitap eklenemez.
+    @PostMapping("/me/add")
     public ResponseEntity<String> addOrUpdateLibrary(
-            @PathVariable Long userId,
+            @AuthenticationPrincipal UserDetails userDetails, // bu notasyon bir kullanıcı başkalarının tokeniyle iş yapamasın diye
             @Valid @RequestBody UserBookRequest request) {
 
-        // Servise DTO'nun içindeki parçaları tek tek postalama
         UserBook userBook = userBookService.addOrUpdateLibrary(
-                userId,
+                userDetails.getUsername(),
                 request.googleBooksId(),
                 request.title(),
                 request.author(),

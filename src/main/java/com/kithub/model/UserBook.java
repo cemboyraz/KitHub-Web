@@ -1,5 +1,6 @@
 package com.kithub.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -14,15 +15,16 @@ public class UserBook {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore // JSON'a çevrilirken User objesini atlayıp sonsuz döngüyü engeller
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "book_id", nullable = false)
     private Book book;
 
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ReadingStatus status;
+
     private LocalDateTime addedAt = LocalDateTime.now();
 }

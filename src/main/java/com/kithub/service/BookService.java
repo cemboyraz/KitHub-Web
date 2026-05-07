@@ -20,7 +20,7 @@ public class BookService {
     public GoogleBooksResponse searchBooksFromGoogle(String query) {
         String url = "https://www.googleapis.com/books/v1/volumes?q=" + query;
 
-        // RestTemplate, gelen JSON'u senin o harika iç içe DTO'na otomatik map'ler!
+        // RestTemplate, gelen JSON'u senin o harika iç içe DTO'na otomatik mapler
         return restTemplate.getForObject(url, GoogleBooksResponse.class);
     }
 
@@ -41,10 +41,13 @@ public class BookService {
         } else {
             newBook.setSummary(summary);
         }
-
         newBook.setImageUrl(imageUrl);
         newBook.setCategory(category);
-
         return bookRepository.save(newBook);
+    }
+    // Kitabı veritabanımızdan ID ile getiren metod
+    public Book getBookById(Long id) {
+        return bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Kitap bulunamadı!"));
     }
 }
