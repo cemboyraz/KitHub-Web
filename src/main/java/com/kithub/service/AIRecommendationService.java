@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,7 +30,7 @@ public class AIRecommendationService {
     private final UserBookService userBookService;
     private final BookService bookService;
     private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper; // JSON Parse etmek için
+    private final ObjectMapper objectMapper;
 
     @Value("${gemini.api.url}")
     private String geminiApiUrl;
@@ -41,78 +40,135 @@ public class AIRecommendationService {
 
     @Transactional
     public AIRecommendationResponse generateRecommendationForUser(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı!"));
 
-        // Günlük Kota Kontrolü
+        // ================= USER =================
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı"));
+
+        // ================= DAILY LIMIT =================
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
-        long requestCountToday = aiRecommendationRepository.countByUserAndGeneratedAtAfter(user, startOfDay);
+
+        long requestCountToday =
+                aiRecommendationRepository.countByUserAndGeneratedAtAfter(user, startOfDay);
 
         if (requestCountToday >= 1) {
-            throw new RuntimeException("Günlük yapay zeka öneri kotanızı (1) doldurdunuz. Lütfen yarın tekrar deneyin.");
+            throw new RuntimeException("Günlük AI öneri limitine ulaştınız");
         }
 
-        // Bitirilmiş Kitapları Çek
-        List<String> finishedBooks = userBookService.getUserFinishedBooksForAI(user.getId());
-        if (finishedBooks.isEmpty()) {
-            throw new RuntimeException("Öneri yapabilmemiz için önce kütüphanenize bitirdiğiniz birkaç kitap eklemelisiniz.");
+        // ================= BOOK HISTORY =================
+        List<String> finishedBooks =
+                userBookService.getUserFinishedBooksForAI(user.getId());
+
+        if (finishedBooks == null || finishedBooks.isEmpty()) {
+            throw new RuntimeException("En az 1 kitap bitirmelisiniz");
         }
 
-        // 1. AŞAMA: GEMINI API'YE YALVARMADAN JSON İSTEMEK
-        String prompt = "Benim bitirdiğim kitaplar şunlar: " + String.join(", ", finishedBooks) + ". "
-                + "Lütfen bana bu tarzda çok seveceğim YENİ 1 TANE kitap öner. "
-                + "Cevabını SADECE VE SADECE aşağıdaki JSON formatında ver. Markdown kullanma, başına sonuna açıklama ekleme:\n"
-                + "{\n"
-                + "  \"title\": \"Kitabın Orijinal Adı\",\n"
-                + "  \"author\": \"Yazarın Adı\",\n"
-                + "  \"matchScore\": 95.5,\n"
-                + "  \"reasoning\": \"Bu kitabı neden önerdiğine dair 2 cümlelik açıklaman (Türkçe)\"\n"
-                + "}";
+        // ================= PROMPT =================
+        String prompt =
+                "Bitirdiğim kitaplar: " + String.join(", ", finishedBooks) +
+                        ". Bana 1 kitap öner. SADECE JSON döndür: " +
+                        "{title, author, matchScore, reasoning}";
 
-        GeminiRequest requestBody = new GeminiRequest(List.of(new GeminiRequest.Content(List.of(new GeminiRequest.Part(prompt)))));
+        GeminiRequest requestBody =
+                new GeminiRequest(List.of(
+                        new GeminiRequest.Content(
+                                List.of(new GeminiRequest.Part(prompt))
+                        )
+                ));
+
         String fullUrl = geminiApiUrl + geminiApiKey;
-        GeminiResponse geminiResponse = restTemplate.postForObject(fullUrl, requestBody, GeminiResponse.class);
 
-        if (geminiResponse == null || geminiResponse.candidates().isEmpty()) {
-            throw new RuntimeException("Yapay Zekadan cevap alınamadı.");
+        GeminiResponse geminiResponse;
+        try {
+            geminiResponse = restTemplate.postForObject(fullUrl, requestBody, GeminiResponse.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Gemini API hatası: " + e.getMessage());
+        }
+
+        if (geminiResponse == null ||
+                geminiResponse.candidates() == null ||
+                geminiResponse.candidates().isEmpty() ||
+                geminiResponse.candidates().get(0).content() == null) {
+            throw new RuntimeException("Gemini boş response döndü");
         }
 
         try {
-            // Gemini'nin döndüğü JSON metnini temizle (bazen ```json tag'i koyabiliyor)
-            String aiAnswerText = geminiResponse.candidates().get(0).content().parts().get(0).text();
-            aiAnswerText = aiAnswerText.replace("```json", "").replace("```", "").trim();
 
+            // ================= AI TEXT =================
+            String aiText = geminiResponse.candidates()
+                    .get(0)
+                    .content()
+                    .parts()
+                    .get(0)
+                    .text();
 
-                    JsonNode jsonNode = objectMapper.readTree(aiAnswerText);
-            String title = jsonNode.get("title").asText();
-            String author = jsonNode.get("author").asText();
-            Double matchScore = jsonNode.get("matchScore").asDouble();
-            String reasoning = jsonNode.get("reasoning").asText();
-
-            // 2. AŞAMA: GOOGLE BOOKS API'DEN GERÇEK KİTAP BİLGİLERİNİ ÇEK VE KAYDET
-            String searchQuery = title + " " + author;
-            var googleResult = bookService.searchBooksFromGoogle(searchQuery);
-
-            if (googleResult.items() == null || googleResult.items().isEmpty()) {
-                throw new RuntimeException("AI bir kitap önerdi ama sistemde bulunamadı: " + title);
+            if (aiText == null || aiText.isBlank()) {
+                throw new RuntimeException("AI response boş");
             }
 
-            // İlk sonucu alıp DB'ye kaydediyoruz (hayalet kitap mantığı)
+            aiText = aiText
+                    .replace("```json", "")
+                    .replace("```", "")
+                    .trim();
+
+            JsonNode jsonNode;
+            try {
+                jsonNode = objectMapper.readTree(aiText);
+            } catch (Exception e) {
+                throw new RuntimeException("AI JSON parse edilemedi: " + aiText);
+            }
+
+            String title = jsonNode.path("title").asText(null);
+            String author = jsonNode.path("author").asText(null);
+            double matchScore = jsonNode.path("matchScore").asDouble(0.0);
+            String reasoning = jsonNode.path("reasoning").asText("");
+
+            if (title == null || author == null) {
+                throw new RuntimeException("AI eksik veri döndü");
+            }
+
+            // ================= GOOGLE SEARCH =================
+            String searchQuery = title + " " + author;
+
+            var googleResult = bookService.searchBooksFromGoogle(searchQuery);
+
+            if (googleResult == null ||
+                    googleResult.items() == null ||
+                    googleResult.items().isEmpty()) {
+                throw new RuntimeException("Google Books sonuç yok: " + title);
+            }
+
             var bestItem = googleResult.items().get(0);
             var volInfo = bestItem.volumeInfo();
-            String imageUrl = volInfo.imageLinks() != null ? volInfo.imageLinks().thumbnail() : null;
-            String category = volInfo.categories() != null && !volInfo.categories().isEmpty() ? volInfo.categories().get(0) : "Unknown";
 
+            if (volInfo == null) {
+                throw new RuntimeException("VolumeInfo null geldi");
+            }
+
+            // ================= SAFE FIELDS =================
+            String imageUrl = (volInfo.imageLinks() != null)
+                    ? volInfo.imageLinks().thumbnail()
+                    : null;
+
+            String category = (volInfo.categories() != null && !volInfo.categories().isEmpty())
+                    ? volInfo.categories().get(0)
+                    : "Unknown";
+
+            String safeAuthor = (volInfo.authors() != null && !volInfo.authors().isEmpty())
+                    ? volInfo.authors().get(0)
+                    : author;
+
+            // ================= SAVE BOOK =================
             Book savedBook = bookService.saveBookIfNotExists(
                     bestItem.id(),
                     volInfo.title(),
-                    volInfo.authors() != null ? volInfo.authors().get(0) : author,
+                    safeAuthor,
                     volInfo.description(),
                     imageUrl,
                     category
             );
 
-            // 3. AŞAMA: TAVSİYEYİ KAYDET VE DTO DÖN
+            // ================= SAVE AI RECOMMENDATION =================
             AIRecommendation recommendation = new AIRecommendation();
             recommendation.setUser(user);
             recommendation.setBook(savedBook);
@@ -122,16 +178,28 @@ public class AIRecommendationService {
 
             aiRecommendationRepository.save(recommendation);
 
-            //  DTO formatında geriye dönüyoruz
+            // ================= RESPONSE =================
             BookResponse bookResponse = new BookResponse(
-                    savedBook.getId(), savedBook.getGoogleBooksId(), savedBook.getTitle(),
-                    savedBook.getAuthor(), savedBook.getImageUrl(), savedBook.getCategory(), 0.0f
+                    savedBook.getId(),
+                    savedBook.getGoogleBooksId(),
+                    savedBook.getTitle(),
+                    savedBook.getAuthor(),
+                    savedBook.getImageUrl(),
+                    savedBook.getCategory(),
+                    0.0f
             );
 
-            return new AIRecommendationResponse(recommendation.getId(), bookResponse, matchScore, reasoning);
+            return new AIRecommendationResponse(
+                    recommendation.getId(),
+                    bookResponse,
+                    matchScore,
+                    reasoning
+            );
 
         } catch (Exception e) {
-            throw new RuntimeException("Yapay Zeka önerisi işlenirken hata oluştu: " + e.getMessage());
+            throw new RuntimeException(
+                    "AI recommendation error: " + e.getMessage(), e
+            );
         }
     }
 }

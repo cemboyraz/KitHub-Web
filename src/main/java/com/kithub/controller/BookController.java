@@ -18,4 +18,8 @@ public class BookController {
         GoogleBooksResponse response = bookService.searchBooksFromGoogle(query);
         return ResponseEntity.ok(response);
     }
+    @GetMapping("/popular")
+    public GoogleBooksResponse getPopularBooks() {
+        return bookService.getPopularBooks();
+    }
 }

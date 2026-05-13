@@ -1,6 +1,7 @@
 package com.kithub.service;
 
 import com.kithub.dto.CommentRequest;
+import com.kithub.dto.CommentResponse;
 import com.kithub.model.Book;
 import com.kithub.model.Comment;
 import com.kithub.model.Role;
@@ -11,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class CommentService {
@@ -19,6 +22,21 @@ public class CommentService {
     private final UserRepository userRepository;
     private final BookService bookService;
     private final UserService userService; // Banlamak için gerekli
+
+    public List<CommentResponse> getBookComments(Long bookId) {
+        Book book = bookService.getBookById(bookId);
+
+        return commentRepository.findByBook(book)
+                .stream()
+                .map(comment -> new CommentResponse(
+                        comment.getId(),
+                        comment.getText(),
+                        comment.getStarCount(),
+                        comment.getUser().getUsername(), // İŞTE KRİTİK NOKTA: İsmi çekiyoruz
+                        comment.getCreatedAt()
+                ))
+                .toList();
+    }
 
     @Transactional
     public Comment addComment(String email, CommentRequest request) {
@@ -34,6 +52,11 @@ public class CommentService {
                 request.imageUrl(),
                 request.category()
         );
+
+        //  2 defa yorum yapamasın diye
+        if (commentRepository.existsByUserAndBook(user, book)) {
+            throw new RuntimeException("Bu kitaba zaten bir inceleme yazdınız! Fikriniz değiştiyse eski yorumunuzu güncelleyebilirsiniz.");
+        }
 
         Comment comment = new Comment();
         comment.setUser(user);
@@ -54,25 +77,25 @@ public class CommentService {
 
         User author = comment.getUser();
 
-        // 1. Durum: Admin siliyorsa adamı otomatik banla[cite: 1]
+        // Admin siliyorsa adamı otomatik banla
         if (requestingUser.getRole() == Role.ADMIN) {
             commentRepository.delete(comment);
             userService.banUser(author.getId());
             return "Yorum admin tarafından silindi. Kural ihlali yapan kullanıcı (" + author.getUsername() + ") otomatik olarak banlandı!";
         }
-        // 2. Durum: Kullanıcı kendi yorumunu siliyorsa
+        //  Kullanıcı kendi yorumunu siliyorsa
         else if (author.getId().equals(requestingUser.getId())) {
             commentRepository.delete(comment);
             return "Yorumunuz başarıyla silindi.";
         }
-        // 3. Durum: Başkasının yorumunu silmeye çalışıyorsa
+        //  Başkasının yorumunu silmeye çalışıyorsa aslında direkt olarak buton da koymayabilirim fronta bu text kalsın kafamda belirsizlik var
         else {
             throw new RuntimeException("Güvenlik İhlali: Bu yorumu silmeye yetkiniz yok!");
         }
     }
 
     @Transactional
-    public Comment updateComment(Long commentId, String newText, Integer newStarCount, String requesterEmail) {
+    public CommentResponse updateComment(Long commentId, String newText, Integer newStarCount, String requesterEmail) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("Yorum bulunamadı!"));
 
@@ -88,6 +111,14 @@ public class CommentService {
             comment.setStarCount(newStarCount);
         }
 
-        return commentRepository.save(comment);
+        Comment updatedComment = commentRepository.save(comment);
+
+        return new CommentResponse(
+                updatedComment.getId(),
+                updatedComment.getText(),
+                updatedComment.getStarCount(),
+                updatedComment.getUser().getUsername(),
+                updatedComment.getCreatedAt()
+        );
     }
 }

@@ -3,7 +3,7 @@ package com.kithub.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.util.List;
-// javax.management.relation.Role SİLİNDİ! Kendi Role'ümüzü kullanıyoruz.
+
 
 @Entity
 @Table(name = "users")

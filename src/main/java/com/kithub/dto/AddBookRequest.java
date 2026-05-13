@@ -4,7 +4,7 @@ public record AddBookRequest(
         String googleBooksId,
         String title,
         String author,
-        String summary,    // Veritabanına kaydetmek için şart
+        String summary,
         String imageUrl,
         String category,
         String status

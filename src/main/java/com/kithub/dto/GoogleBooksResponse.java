@@ -13,7 +13,8 @@ public record GoogleBooksResponse(List<Item> items) {
             String title,
             List<String> authors,
             String description,
-            ImageLinks imageLinks
+            ImageLinks imageLinks,
+            List<String> categories
     ) {}
 
     public record ImageLinks(

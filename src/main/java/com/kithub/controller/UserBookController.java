@@ -1,6 +1,7 @@
 package com.kithub.controller;
 
 import com.kithub.dto.UserBookRequest;
+import com.kithub.dto.UserBookResponse;
 import com.kithub.model.UserBook;
 import com.kithub.service.UserBookService;
 import jakarta.validation.Valid;
@@ -10,6 +11,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/library")
 @RequiredArgsConstructor
@@ -17,7 +20,7 @@ public class UserBookController {
 
     private final UserBookService userBookService;
 
-    // URL'den {userId} silindi. Başkasının adına kitap eklenemez.
+    //  Başkasının adına kitap eklenemez.
     @PostMapping("/me/add")
     public ResponseEntity<String> addOrUpdateLibrary(
             @AuthenticationPrincipal UserDetails userDetails, // bu notasyon bir kullanıcı başkalarının tokeniyle iş yapamasın diye
@@ -35,5 +38,11 @@ public class UserBookController {
         );
 
         return ResponseEntity.ok("Kitap kütüphanenize başarıyla eklendi/güncellendi. Yeni Statü: " + userBook.getStatus());
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<List<UserBookResponse>> getMyLibrary(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(userBookService.getUserLibrary(userDetails.getUsername()));
     }
 }

@@ -1,5 +1,6 @@
 package com.kithub.service;
 
+import com.kithub.dto.UserBookResponse;
 import com.kithub.model.Book;
 import com.kithub.model.ReadingStatus;
 import com.kithub.model.User;
@@ -54,6 +55,24 @@ public class UserBookService {
         return userBookRepository.findByUserAndStatus(user, ReadingStatus.FINISHED)
                 .stream()
                 .map(userBook -> userBook.getBook().getTitle())
+                .toList();
+    }
+    // kullanıcnın kitap listesi yani kütüphanesi
+    public List<UserBookResponse> getUserLibrary(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı!"));
+
+        return userBookRepository.findByUser(user)
+                .stream()
+                .map(ub -> new UserBookResponse(
+                        ub.getId(),
+                        ub.getBook().getGoogleBooksId(),
+                        ub.getBook().getTitle(),
+                        ub.getBook().getAuthor(),
+                        ub.getBook().getImageUrl(),
+                        ub.getStatus(),
+                        ub.getAddedAt()
+                ))
                 .toList();
     }
 }

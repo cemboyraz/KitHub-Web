@@ -1,6 +1,8 @@
 package com.kithub.controller;
 
 import com.kithub.dto.CommentRequest;
+import com.kithub.dto.CommentResponse;
+import com.kithub.dto.UpdateCommentRequest;
 import com.kithub.model.Comment;
 import com.kithub.service.CommentService;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/comments")
@@ -26,13 +30,21 @@ public class CommentController {
     }
 
     @PutMapping("/{commentId}")
-    public ResponseEntity<Comment> updateComment(
+    public ResponseEntity<CommentResponse> updateComment(
             @PathVariable Long commentId,
             @AuthenticationPrincipal UserDetails userDetails,
-            @RequestParam String text,
-            @RequestParam(required = false) Integer starCount) {
+            @RequestBody UpdateCommentRequest request) {
 
-        return ResponseEntity.ok(commentService.updateComment(commentId, text, starCount, userDetails.getUsername()));
+        return ResponseEntity.ok(commentService.updateComment(
+                commentId,
+                request.text(),
+                request.starCount(),
+                userDetails.getUsername()
+        ));
+    }
+    @GetMapping("/book/{bookId}")
+    public ResponseEntity<List<CommentResponse>> getBookComments(@PathVariable Long bookId) {
+        return ResponseEntity.ok(commentService.getBookComments(bookId));
     }
 
     @DeleteMapping("/{commentId}")
