@@ -44,4 +44,8 @@ public class AuthService {
 
         return jwtService.generateToken(user.getEmail());
     }
+    public String logout() {
+        return "Sistemden başarıyla çıkış yapıldı.";
+    }
+
 }

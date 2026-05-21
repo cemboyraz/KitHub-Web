@@ -6,11 +6,12 @@ import com.kithub.model.Book;
 import com.kithub.model.Comment;
 import com.kithub.model.Role;
 import com.kithub.model.User;
+import com.kithub.repository.BookRepository;
 import com.kithub.repository.CommentRepository;
 import com.kithub.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -21,29 +22,36 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
     private final BookService bookService;
-    private final UserService userService; // Banlamak için gerekli
+    private final UserService userService;
+    private final BookRepository bookRepository;
 
-    public List<CommentResponse> getBookComments(Long bookId) {
-        Book book = bookService.getBookById(bookId);
+    public List<CommentResponse> getBookComments(String bookId) {
+        try {
+            // String ID ile kitabi buluyoruz
+            Book book = bookService.getBookById(bookId);
 
-        return commentRepository.findByBook(book)
-                .stream()
-                .map(comment -> new CommentResponse(
-                        comment.getId(),
-                        comment.getText(),
-                        comment.getStarCount(),
-                        comment.getUser().getUsername(), // İŞTE KRİTİK NOKTA: İsmi çekiyoruz
-                        comment.getCreatedAt()
-                ))
-                .toList();
+            return commentRepository.findByBook(book)
+                    .stream()
+                    .map(comment -> new CommentResponse(
+                            comment.getId(),
+                            comment.getText(),
+                            comment.getStarCount(),
+                            comment.getUser().getUsername(),
+                            comment.getCreatedAt()
+                    ))
+                    .toList();
+        } catch (RuntimeException e) {
+            // EĞER KİTAP YOKSA SİSTEMİ ÇÖKERTME!
+            // Veritabanında kitap yoksa, henüz kimse yorum yapmamış demektir. Boş liste dönüyoruz.
+            return java.util.List.of();
+        }
     }
-
     @Transactional
-    public Comment addComment(String email, CommentRequest request) {
+    public CommentResponse addComment(String email, CommentRequest request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı"));
 
-        // Kitap yoksa Google verisiyle önce yarat, varsa getir
+        // Kitap yoksa önce bizim DB'ye String ID ile kaydet
         Book book = bookService.saveBookIfNotExists(
                 request.googleBooksId(),
                 request.title(),
@@ -53,9 +61,8 @@ public class CommentService {
                 request.category()
         );
 
-        //  2 defa yorum yapamasın diye
         if (commentRepository.existsByUserAndBook(user, book)) {
-            throw new RuntimeException("Bu kitaba zaten bir inceleme yazdınız! Fikriniz değiştiyse eski yorumunuzu güncelleyebilirsiniz.");
+            throw new RuntimeException("Bu kitaba zaten bir inceleme yazdınız!");
         }
 
         Comment comment = new Comment();
@@ -64,7 +71,16 @@ public class CommentService {
         comment.setText(request.text());
         comment.setStarCount(request.starCount());
 
-        return commentRepository.save(comment);
+        Comment savedComment = commentRepository.save(comment);
+
+        // Entity'den Response DTO'ya dönüşüm yaparak dönüyoruz
+        return new CommentResponse(
+                savedComment.getId(),
+                savedComment.getText(),
+                savedComment.getStarCount(),
+                savedComment.getUser().getUsername(),
+                savedComment.getCreatedAt()
+        );
     }
 
     @Transactional
@@ -77,48 +93,61 @@ public class CommentService {
 
         User author = comment.getUser();
 
-        // Admin siliyorsa adamı otomatik banla
         if (requestingUser.getRole() == Role.ADMIN) {
             commentRepository.delete(comment);
             userService.banUser(author.getId());
-            return "Yorum admin tarafından silindi. Kural ihlali yapan kullanıcı (" + author.getUsername() + ") otomatik olarak banlandı!";
+            return "Kural ihlali! Yorum silindi ve kullanıcı banlandı.";
         }
-        //  Kullanıcı kendi yorumunu siliyorsa
-        else if (author.getId().equals(requestingUser.getId())) {
+
+        if (author.getId().equals(requestingUser.getId())) {
             commentRepository.delete(comment);
-            return "Yorumunuz başarıyla silindi.";
+            return "Yorumunuz silindi.";
         }
-        //  Başkasının yorumunu silmeye çalışıyorsa aslında direkt olarak buton da koymayabilirim fronta bu text kalsın kafamda belirsizlik var
-        else {
-            throw new RuntimeException("Güvenlik İhlali: Bu yorumu silmeye yetkiniz yok!");
-        }
+
+        throw new RuntimeException("Yetkisiz işlem!");
     }
 
     @Transactional
-    public CommentResponse updateComment(Long commentId, String newText, Integer newStarCount, String requesterEmail) {
+    public CommentResponse updateComment(Long commentId, String newText, Integer newStarCount, String email) {
         Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new RuntimeException("Yorum bulunamadı!"));
+                .orElseThrow(() -> new RuntimeException("Yorum bulunamadı"));
 
-        User requestingUser = userRepository.findByEmail(requesterEmail)
-                .orElseThrow(() -> new RuntimeException("İşlemi yapan kullanıcı bulunamadı!"));
+        User user = userRepository.findByEmail(email).get();
 
-        if (!comment.getUser().getId().equals(requestingUser.getId())) {
-            throw new RuntimeException("Sadece kendi yorumunuzu güncelleyebilirsiniz!");
+        if(!comment.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Sadece kendi yorumunu güncelleyebilirsin!");
         }
 
         comment.setText(newText);
-        if (newStarCount != null) {
+        if(newStarCount != null) {
             comment.setStarCount(newStarCount);
         }
 
-        Comment updatedComment = commentRepository.save(comment);
+        Comment updated = commentRepository.save(comment);
+
+        //  Kitabın tüm yorumlarını çekip ortalamayı güncelliyoruz
+        updateBookRating(updated.getBook());
 
         return new CommentResponse(
-                updatedComment.getId(),
-                updatedComment.getText(),
-                updatedComment.getStarCount(),
-                updatedComment.getUser().getUsername(),
-                updatedComment.getCreatedAt()
+                updated.getId(),
+                updated.getText(),
+                updated.getStarCount(),
+                updated.getUser().getUsername(),
+                updated.getCreatedAt()
         );
     }
+
+
+    private void updateBookRating(Book book) {
+        List<Comment> allComments = commentRepository.findByBook(book);
+        double avgRating = allComments.stream()
+                .mapToInt(Comment::getStarCount)
+                .average()
+                .orElse(0.0);
+
+        book.setAverageRating((float) avgRating);
+        book.setTotalReviews(allComments.size());
+        bookRepository.save(book);
+    }
+
 }

@@ -15,11 +15,12 @@ public class UserBook {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnore // JSON'a çevrilirken User objesini atlayıp sonsuz döngüyü engeller
+    @JsonIgnore
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "book_id", nullable = false)
+    @JsonIgnore // BÜYÜ BURADA: Arka pencereyi de kapattık!
     private Book book;
 
     @Enumerated(EnumType.STRING)

@@ -1,5 +1,6 @@
 package com.kithub.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.util.List;
@@ -9,24 +10,26 @@ import java.util.List;
 @Data
 public class Book {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @Column(unique = true)
-    private String googleBooksId;
-
+    @Column(length = 1000) // Başlıklar bazen 255 karakteri aşabilir, güvenceye aldık.
     private String title;
+
     private String author;
     private String category;
     private String isbn;
 
-    @Column(length = 2000)
+    //   Özet kısmının 2000 sınırını kaldırıp sınırsız  yaptık!
+    @Column(columnDefinition = "TEXT")
     private String summary;
 
     private String publisher;
     private Integer publicationYear;
     private Integer pageCount;
     private String language;
+
+    // 🔥 KANKA BÜYÜ 2: Resim linkleri çok uzun olabilir, burayı da sınırsız (TEXT) yaptık!
+    @Column(columnDefinition = "TEXT")
     private String imageUrl;
 
     private Float averageRating = 0.0f;
@@ -38,8 +41,8 @@ public class Book {
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments;
 
+    // Sonsuz döngü kalkanı
+    @JsonIgnore
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserBook> userBooks;
-
-    private Long userId;
 }

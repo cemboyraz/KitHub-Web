@@ -5,10 +5,11 @@ import java.time.LocalDateTime;
 
 public record UserBookResponse(
         Long id,
-        String googleBooksId,    // kitabın google id'si detaya gitmek için lazım olabilir bence olamz da neyse
+        String googleBooksId,
         String title,
         String author,
         String imageUrl,
+        String summary,
         ReadingStatus status,
         LocalDateTime addedAt
 ) {}

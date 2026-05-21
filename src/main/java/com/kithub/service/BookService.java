@@ -1,12 +1,10 @@
 package com.kithub.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper; // KANKA: Bunu ekledik ki JSON'ı güvenle parçalayabilelim
 import com.kithub.dto.GoogleBooksResponse;
 import com.kithub.model.Book;
-import com.kithub.model.User;
-import com.kithub.model.UserBook;
 import com.kithub.repository.BookRepository;
-import com.kithub.repository.UserBookRepository;
-import com.kithub.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -24,156 +22,125 @@ public class BookService {
     private final BookRepository bookRepository;
     private final RestTemplate restTemplate;
 
-
     @Value("${google.books.api.key}")
     private String apiKey;
 
-
-    // GOOGLE BOOKS araması+key ekledik ve ara ara değişmek gerektirebiliyor
-
+    // Google Books Toplu Arama
     public GoogleBooksResponse searchBooksFromGoogle(String query) {
+        String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
 
-        String encodedQuery =
-                URLEncoder.encode(query, StandardCharsets.UTF_8);
-
-        String url =
-                "https://www.googleapis.com/books/v1/volumes?q="
-                        + encodedQuery
-                        + "&maxResults=20"
-                        + "&orderBy=relevance"
-                        + "&printType=books"
-                        + "&key="
-                        + apiKey;
-
-        System.out.println("Google Books URL: " + url);
+        String url = "https://www.googleapis.com/books/v1/volumes?q="
+                + encodedQuery
+                + "&maxResults=20"
+                + "&orderBy=relevance"
+                + "&printType=books"
+                + "&key=" + apiKey;
 
         try {
-            GoogleBooksResponse response =
-                    restTemplate.getForObject(url, GoogleBooksResponse.class);
-
-            return response;
+            return restTemplate.getForObject(url, GoogleBooksResponse.class);
         } catch (Exception e) {
             System.out.println("Google Books API ERROR: " + e.getMessage());
             return new GoogleBooksResponse(java.util.List.of());
         }
     }
 
-    // metot isminden belli eğer kitap yoksa kaydetme.
+    public Book saveBookIfNotExists(String googleId, String title, String author, String summary, String imageUrl, String category) {
+        return bookRepository.findById(googleId)
+                .orElseGet(() -> {
+                    Book book = new Book();
+                    book.setId(googleId);
+                    book.setTitle(title != null ? title : "Unknown Title");
+                    book.setAuthor(author != null ? author : "Unknown Author");
 
-    public Book saveBookIfNotExists(
-            String googleId,
-            String title,
-            String author,
-            String summary,
-            String imageUrl,
-            String category
-    ) {
+                    if (summary != null && summary.length() > 1900) {
+                        book.setSummary(summary.substring(0, 1900) + "...");
+                    } else {
+                        book.setSummary(summary != null ? summary : "No description");
+                    }
 
-        Optional<Book> existingBook =
-                bookRepository.findByGoogleBooksId(googleId);
+                    book.setImageUrl(imageUrl != null ? imageUrl : "");
+                    book.setCategory(category != null ? category : "Unknown");
 
-        if (existingBook.isPresent()) {
-            return existingBook.get();
-        }
-
-        Book newBook = new Book();
-
-        newBook.setGoogleBooksId(googleId);
-
-        newBook.setTitle(
-                title != null ? title : "Unknown Title"
-        );
-
-        newBook.setAuthor(
-                author != null ? author : "Unknown Author"
-        );
-
-        newBook.setSummary(
-                summary != null && summary.length() > 1900
-                        ? summary.substring(0, 1900) + "..."
-                        : (summary != null ? summary : "No description")
-        );
-
-        newBook.setImageUrl(
-                imageUrl != null ? imageUrl : ""
-        );
-
-        newBook.setCategory(
-                category != null ? category : "Unknown"
-        );
-
-        return bookRepository.save(newBook);
-    }
-    //favori kitap kaydetme
-    public Book saveFavoriteBook(
-            Long userId,
-            String googleId,
-            String title,
-            String author,
-            String summary,
-            String imageUrl,
-            String category
-    ) {
-
-        Optional<Book> existing =
-                bookRepository.findByGoogleBooksIdAndUserId(
-                        googleId,
-                        userId
-                );
-
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-
-        Book book = new Book();
-
-        book.setGoogleBooksId(googleId);
-        book.setTitle(title != null ? title : "Unknown Title");
-        book.setAuthor(author != null ? author : "Unknown Author");
-
-        book.setSummary(
-                summary != null && summary.length() > 1900
-                        ? summary.substring(0, 1900) + "..."
-                        : (summary != null ? summary : "No description")
-        );
-
-        book.setImageUrl(imageUrl != null ? imageUrl : "");
-        book.setCategory(category != null ? category : "Unknown");
-
-        book.setUserId(userId);
-
-        return bookRepository.save(book);
+                    return bookRepository.save(book);
+                });
     }
 
-    public Book getBookById(Long id) {
-
+    public Book getBookById(String id) {
         return bookRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Kitap bulunamadı!")
-                );
+                .orElseThrow(() -> new RuntimeException("Kitap bulunamadı!"));
     }
 
-    public GoogleBooksResponse getPopularBooks() {
+    public List<Book> getPopularBooks() {
+        return bookRepository.findRandomBooks();
+    }
 
-        String url =
-                "https://www.googleapis.com/books/v1/volumes?q=java"
-                        + "&maxResults=20";
+
+    // TWO World problem
+
+    public Book getBookDetails(String googleId) {
+        // 1. Önce kendi KitHub veritabanımıza bakıyoruz (Yorumlar ve Puanlar burada var)
+        Optional<Book> localBook = bookRepository.findById(googleId);
+
+        if (localBook.isPresent()) {
+            // Kitap bizde varsa, direkt onu dönüyoruz. İçindeki yorumlar jilet gibi gelecek.
+            return localBook.get();
+        }
+
+        // 2. Kitap bizde YOKSA, Google API'den çekiyoruz
+        String url = "https://www.googleapis.com/books/v1/volumes/" + googleId + "?key=" + apiKey;
 
         try {
-            GoogleBooksResponse response =
-                    restTemplate.getForObject(url, GoogleBooksResponse.class);
+            // 🔥 KANKA BÜYÜ BURADA: Veriyi JsonNode diye zorlamak yerine önce dümdüz String (Metin) olarak alıyoruz
+            String jsonResponse = restTemplate.getForObject(url, String.class);
 
-            // null safeguard
-            if (response == null || response.items() == null) {
-                return new GoogleBooksResponse(java.util.List.of());
+            if (jsonResponse == null) {
+                throw new RuntimeException("Google Books API'den boş yanıt geldi.");
             }
 
-            return response;
+            // Sonra kendi kalkanımızla (ObjectMapper) onu json'a çeviriyoruz, böylece asla çökmüyor!
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode response = mapper.readTree(jsonResponse);
+
+            if (!response.has("volumeInfo")) {
+                throw new RuntimeException("Google Books API'den kitap bulunamadı.");
+            }
+
+            JsonNode volumeInfo = response.get("volumeInfo");
+            Book book = new Book();
+            book.setId(googleId);
+
+            book.setTitle(volumeInfo.has("title") ? volumeInfo.get("title").asText() : "Unknown Title");
+
+            if (volumeInfo.has("authors") && volumeInfo.get("authors").isArray()) {
+                book.setAuthor(volumeInfo.get("authors").get(0).asText());
+            } else {
+                book.setAuthor("Unknown Author");
+            }
+
+            if (volumeInfo.has("description")) {
+                String summary = volumeInfo.get("description").asText();
+                book.setSummary(summary.length() > 1900 ? summary.substring(0, 1900) + "..." : summary);
+            } else {
+                book.setSummary("No description available.");
+            }
+
+            if (volumeInfo.has("imageLinks") && volumeInfo.get("imageLinks").has("thumbnail")) {
+                book.setImageUrl(volumeInfo.get("imageLinks").get("thumbnail").asText());
+            } else {
+                book.setImageUrl("");
+            }
+
+            if (volumeInfo.has("categories") && volumeInfo.get("categories").isArray()) {
+                book.setCategory(volumeInfo.get("categories").get(0).asText());
+            } else {
+                book.setCategory("Unknown");
+            }
+
+            return book;
 
         } catch (Exception e) {
-            System.out.println("Google Books ERROR: " + e.getMessage());
-
-            return new GoogleBooksResponse(java.util.List.of());
+            System.out.println("Google API'den detay çekilirken hata: " + e.getMessage());
+            throw new RuntimeException("Kitap detayları çekilemedi.");
         }
     }
 }

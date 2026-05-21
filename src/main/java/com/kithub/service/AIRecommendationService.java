@@ -56,6 +56,7 @@ public class AIRecommendationService {
         }
 
         // ================= BOOK HISTORY =================
+        // Burada userId (Long) kullanıyoruz, sıkıntı yok
         List<String> finishedBooks =
                 userBookService.getUserFinishedBooksForAI(user.getId());
 
@@ -67,7 +68,7 @@ public class AIRecommendationService {
         String prompt =
                 "Bitirdiğim kitaplar: " + String.join(", ", finishedBooks) +
                         ". Bana 1 kitap öner. SADECE JSON döndür: " +
-                        "{title, author, matchScore, reasoning}";
+                        "{ \"title\": \"...\", \"author\": \"...\", \"matchScore\": 95, \"reasoning\": \"...\" }";
 
         GeminiRequest requestBody =
                 new GeminiRequest(List.of(
@@ -87,88 +88,43 @@ public class AIRecommendationService {
 
         if (geminiResponse == null ||
                 geminiResponse.candidates() == null ||
-                geminiResponse.candidates().isEmpty() ||
-                geminiResponse.candidates().get(0).content() == null) {
+                geminiResponse.candidates().isEmpty()) {
             throw new RuntimeException("Gemini boş response döndü");
         }
 
         try {
+            // ================= AI TEXT PARSING =================
+            String aiText = geminiResponse.candidates().get(0).content().parts().get(0).text();
+            aiText = aiText.replace("```json", "").replace("```", "").trim();
 
-            // ================= AI TEXT =================
-            String aiText = geminiResponse.candidates()
-                    .get(0)
-                    .content()
-                    .parts()
-                    .get(0)
-                    .text();
-
-            if (aiText == null || aiText.isBlank()) {
-                throw new RuntimeException("AI response boş");
-            }
-
-            aiText = aiText
-                    .replace("```json", "")
-                    .replace("```", "")
-                    .trim();
-
-            JsonNode jsonNode;
-            try {
-                jsonNode = objectMapper.readTree(aiText);
-            } catch (Exception e) {
-                throw new RuntimeException("AI JSON parse edilemedi: " + aiText);
-            }
+            JsonNode jsonNode = objectMapper.readTree(aiText);
 
             String title = jsonNode.path("title").asText(null);
             String author = jsonNode.path("author").asText(null);
             double matchScore = jsonNode.path("matchScore").asDouble(0.0);
             String reasoning = jsonNode.path("reasoning").asText("");
 
-            if (title == null || author == null) {
-                throw new RuntimeException("AI eksik veri döndü");
-            }
-
             // ================= GOOGLE SEARCH =================
-            String searchQuery = title + " " + author;
+            var googleResult = bookService.searchBooksFromGoogle(title + " " + author);
 
-            var googleResult = bookService.searchBooksFromGoogle(searchQuery);
-
-            if (googleResult == null ||
-                    googleResult.items() == null ||
-                    googleResult.items().isEmpty()) {
+            if (googleResult == null || googleResult.items() == null || googleResult.items().isEmpty()) {
                 throw new RuntimeException("Google Books sonuç yok: " + title);
             }
 
             var bestItem = googleResult.items().get(0);
             var volInfo = bestItem.volumeInfo();
 
-            if (volInfo == null) {
-                throw new RuntimeException("VolumeInfo null geldi");
-            }
-
-            // ================= SAFE FIELDS =================
-            String imageUrl = (volInfo.imageLinks() != null)
-                    ? volInfo.imageLinks().thumbnail()
-                    : null;
-
-            String category = (volInfo.categories() != null && !volInfo.categories().isEmpty())
-                    ? volInfo.categories().get(0)
-                    : "Unknown";
-
-            String safeAuthor = (volInfo.authors() != null && !volInfo.authors().isEmpty())
-                    ? volInfo.authors().get(0)
-                    : author;
-
-            // ================= SAVE BOOK =================
+            // ================= SAVE BOOK (MİMARİYE UYGUN) =================
             Book savedBook = bookService.saveBookIfNotExists(
-                    bestItem.id(),
+                    bestItem.id(), // Artik bu direkt savedBook.getId() (String)
                     volInfo.title(),
-                    safeAuthor,
+                    (volInfo.authors() != null) ? volInfo.authors().get(0) : author,
                     volInfo.description(),
-                    imageUrl,
-                    category
+                    (volInfo.imageLinks() != null) ? volInfo.imageLinks().thumbnail() : null,
+                    (volInfo.categories() != null) ? volInfo.categories().get(0) : "General"
             );
 
-            // ================= SAVE AI RECOMMENDATION =================
+            // ================= SAVE RECOMMENDATION =================
             AIRecommendation recommendation = new AIRecommendation();
             recommendation.setUser(user);
             recommendation.setBook(savedBook);
@@ -178,15 +134,16 @@ public class AIRecommendationService {
 
             aiRecommendationRepository.save(recommendation);
 
-            // ================= RESPONSE =================
+            // ================= RESPONSE (DÜZELTİLEN YER) =================
+            // getGoogleBooksId() yerine getId() kullanıyoruz
+            // AIRecommendationService.java içinde (satır 139 civarı)
             BookResponse bookResponse = new BookResponse(
                     savedBook.getId(),
-                    savedBook.getGoogleBooksId(),
                     savedBook.getTitle(),
                     savedBook.getAuthor(),
                     savedBook.getImageUrl(),
                     savedBook.getCategory(),
-                    0.0f
+                    0.0f // averageRating için varsayılan değer
             );
 
             return new AIRecommendationResponse(
@@ -197,9 +154,7 @@ public class AIRecommendationService {
             );
 
         } catch (Exception e) {
-            throw new RuntimeException(
-                    "AI recommendation error: " + e.getMessage(), e
-            );
+            throw new RuntimeException("AI recommendation error: " + e.getMessage());
         }
     }
 }

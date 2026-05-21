@@ -15,4 +15,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findByBook(Book book);
 
     boolean existsByUserAndBook(User user, Book book);
+
+    void deleteByBookId(String googleBooksId);
+    // Sadece o kullanıcının o kitaptaki yorumunu silmek için
+    void deleteByUserAndBook_Id(User user, String bookId);
 }

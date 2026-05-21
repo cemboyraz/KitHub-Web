@@ -45,4 +45,14 @@ public class UserBookController {
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(userBookService.getUserLibrary(userDetails.getUsername()));
     }
+    // Frontend'den "Listeden Çıkar"a basıldığında bu endpoint tetiklenecek
+    @DeleteMapping("/me/remove/{googleBooksId}")
+    public ResponseEntity<String> removeFromLibrary(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable String googleBooksId) {
+
+        userBookService.removeFromLibrary(userDetails.getUsername(), googleBooksId);
+        return ResponseEntity.ok("Kitap listenizden başarıyla çıkarıldı.");
+    }
+
 }

@@ -1,10 +1,7 @@
 package com.kithub.dto;
 
-
-
 public record BookResponse(
-        Long id,
-        String googleBooksId,
+        String id,
         String title,
         String author,
         String imageUrl,

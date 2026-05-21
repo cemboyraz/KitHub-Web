@@ -3,7 +3,6 @@ package com.kithub.controller;
 import com.kithub.dto.CommentRequest;
 import com.kithub.dto.CommentResponse;
 import com.kithub.dto.UpdateCommentRequest;
-import com.kithub.model.Comment;
 import com.kithub.service.CommentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +19,11 @@ public class CommentController {
 
     private final CommentService commentService;
 
-
     @PostMapping("/add")
-    public ResponseEntity<Comment> addComment(
+    public ResponseEntity<CommentResponse> addComment(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody CommentRequest request) {
-
+        // Dönüş tipini CommentResponse yaptık
         return ResponseEntity.ok(commentService.addComment(userDetails.getUsername(), request));
     }
 
@@ -42,8 +40,10 @@ public class CommentController {
                 userDetails.getUsername()
         ));
     }
+
     @GetMapping("/book/{bookId}")
-    public ResponseEntity<List<CommentResponse>> getBookComments(@PathVariable Long bookId) {
+    public ResponseEntity<List<CommentResponse>> getBookComments(@PathVariable String bookId) {
+        // bookId artik long değil String (Google ID)
         return ResponseEntity.ok(commentService.getBookComments(bookId));
     }
 
