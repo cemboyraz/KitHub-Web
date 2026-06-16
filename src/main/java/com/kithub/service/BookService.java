@@ -26,8 +26,30 @@ public class BookService {
     private String apiKey;
 
     // Google Books Toplu Arama
+    // =======================================================
+    // 1. TÜRKÇE KARAKTER TEMİZLEME METODU (YENİ EKLENDİ)
+    // =======================================================
+    private String normalizeTurkishCharacters(String text) {
+        if (text == null) return "";
+        return text
+                .replace("ç", "c").replace("Ç", "C")
+                .replace("ğ", "g").replace("Ğ", "G")
+                .replace("ı", "i").replace("İ", "I")
+                .replace("ö", "o").replace("Ö", "O")
+                .replace("ş", "s").replace("Ş", "S")
+                .replace("ü", "u").replace("Ü", "U");
+    }
+
+    // =======================================================
+    // 2. GÜNCELLENMİŞ ARAMA METODU
+    // =======================================================
     public GoogleBooksResponse searchBooksFromGoogle(String query) {
-        String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
+
+        // Önce Türkçe karakterleri temizliyoruz (Şeker Portakalı -> Seker Portakali)
+        String normalizedQuery = normalizeTurkishCharacters(query);
+
+        // Sonra URL formatına (boşlukları %20 veya + yapacak şekilde) çeviriyoruz
+        String encodedQuery = URLEncoder.encode(normalizedQuery, StandardCharsets.UTF_8);
 
         String url = "https://www.googleapis.com/books/v1/volumes?q="
                 + encodedQuery
@@ -78,7 +100,7 @@ public class BookService {
     // TWO World problem
 
     public Book getBookDetails(String googleId) {
-        // 1. Önce kendi KitHub veritabanımıza bakıyoruz (Yorumlar ve Puanlar burada var)
+        //  Önce kendi KitHub veritabanımıza bakıyoruz (Yorumlar ve Puanlar burada var)
         Optional<Book> localBook = bookRepository.findById(googleId);
 
         if (localBook.isPresent()) {
@@ -86,11 +108,11 @@ public class BookService {
             return localBook.get();
         }
 
-        // 2. Kitap bizde YOKSA, Google API'den çekiyoruz
+        //  Kitap bizde YOKSA, Google API'den çekiyoruz
         String url = "https://www.googleapis.com/books/v1/volumes/" + googleId + "?key=" + apiKey;
 
         try {
-            // 🔥 KANKA BÜYÜ BURADA: Veriyi JsonNode diye zorlamak yerine önce dümdüz String (Metin) olarak alıyoruz
+            //  Veriyi JsonNode diye zorlamak yerine önce dümdüz String (Metin) olarak alıyoruz
             String jsonResponse = restTemplate.getForObject(url, String.class);
 
             if (jsonResponse == null) {

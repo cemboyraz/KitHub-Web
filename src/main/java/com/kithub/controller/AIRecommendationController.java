@@ -18,7 +18,6 @@ public class AIRecommendationController {
     // PathVariable silindi, IDOR açığı kapatıldı .Veri direkt JWT'den geliyor.
     @PostMapping("/recommend")
     public ResponseEntity<AIRecommendationResponse> getRecommendation(@AuthenticationPrincipal UserDetails userDetails) {
-
         AIRecommendationResponse response = aiRecommendationService.generateRecommendationForUser(userDetails.getUsername());
         return ResponseEntity.ok(response);
     }

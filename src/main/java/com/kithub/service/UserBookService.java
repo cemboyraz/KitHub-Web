@@ -93,9 +93,6 @@ public class UserBookService {
     public void removeFromLibrary(String email, String googleBooksId) {
         User user = userRepository.findByEmail(email).orElseThrow();
 
-        //  SADECE bu kullanıcının o kitaptaki yorumunu siliyoruz Başkalarınınki güvende
-        commentRepository.deleteByUserAndBook_Id(user, googleBooksId);
-
         // KİTABI LİSTEDEN ÇIKAR
         List<UserBook> userBooks = userBookRepository.findAllByUserAndBook_Id(user, googleBooksId);
         if (!userBooks.isEmpty()) {

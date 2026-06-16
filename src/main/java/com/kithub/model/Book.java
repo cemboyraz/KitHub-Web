@@ -28,7 +28,7 @@ public class Book {
     private Integer pageCount;
     private String language;
 
-    // 🔥 KANKA BÜYÜ 2: Resim linkleri çok uzun olabilir, burayı da sınırsız (TEXT) yaptık!
+    //  Resim linkleri çok uzun olabilir, burayı da sınırsız (TEXT) yaptık!
     @Column(columnDefinition = "TEXT")
     private String imageUrl;
 

@@ -23,6 +23,9 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .username(user.getEmail())
                 .password(user.getPassword())
                 .roles(user.getRole().name())
+                //  Spring Security'e hesabın kilitli ve devre dışı olduğunu söylüyoruz
+                .accountLocked(user.isBlacklisted())
+                .disabled(user.isBlacklisted())
                 .build();
     }
 }

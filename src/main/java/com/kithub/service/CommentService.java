@@ -27,7 +27,6 @@ public class CommentService {
 
     public List<CommentResponse> getBookComments(String bookId) {
         try {
-            // String ID ile kitabi buluyoruz
             Book book = bookService.getBookById(bookId);
 
             return commentRepository.findByBook(book)
@@ -41,17 +40,15 @@ public class CommentService {
                     ))
                     .toList();
         } catch (RuntimeException e) {
-            // EĞER KİTAP YOKSA SİSTEMİ ÇÖKERTME!
-            // Veritabanında kitap yoksa, henüz kimse yorum yapmamış demektir. Boş liste dönüyoruz.
             return java.util.List.of();
         }
     }
+
     @Transactional
     public CommentResponse addComment(String email, CommentRequest request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı"));
 
-        // Kitap yoksa önce bizim DB'ye String ID ile kaydet
         Book book = bookService.saveBookIfNotExists(
                 request.googleBooksId(),
                 request.title(),
@@ -73,7 +70,9 @@ public class CommentService {
 
         Comment savedComment = commentRepository.save(comment);
 
-        // Entity'den Response DTO'ya dönüşüm yaparak dönüyoruz
+        //  Yeni yorum atıldığında kitabın genel puanını GÜNCELLE!
+        updateBookRating(book);
+
         return new CommentResponse(
                 savedComment.getId(),
                 savedComment.getText(),
@@ -92,15 +91,21 @@ public class CommentService {
                 .orElseThrow(() -> new RuntimeException("İşlemi yapan kullanıcı bulunamadı!"));
 
         User author = comment.getUser();
+        Book book = comment.getBook(); // Kitabı silinmeden önce hafızaya alıyoruz
 
         if (requestingUser.getRole() == Role.ADMIN) {
             commentRepository.delete(comment);
             userService.banUser(author.getId());
+            updateBookRating(book); // Banlanınca ortalamayı güncelle
             return "Kural ihlali! Yorum silindi ve kullanıcı banlandı.";
         }
 
         if (author.getId().equals(requestingUser.getId())) {
             commentRepository.delete(comment);
+
+            //  Yorum silindiğinde kitabın genel puanını GÜNCELLE!
+            updateBookRating(book);
+
             return "Yorumunuz silindi.";
         }
 
@@ -125,7 +130,7 @@ public class CommentService {
 
         Comment updated = commentRepository.save(comment);
 
-        //  Kitabın tüm yorumlarını çekip ortalamayı güncelliyoruz
+        // güncellenmesi için .
         updateBookRating(updated.getBook());
 
         return new CommentResponse(
@@ -136,7 +141,6 @@ public class CommentService {
                 updated.getCreatedAt()
         );
     }
-
 
     private void updateBookRating(Book book) {
         List<Comment> allComments = commentRepository.findByBook(book);
@@ -149,5 +153,4 @@ public class CommentService {
         book.setTotalReviews(allComments.size());
         bookRepository.save(book);
     }
-
 }

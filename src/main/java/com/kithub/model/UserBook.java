@@ -20,7 +20,7 @@ public class UserBook {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "book_id", nullable = false)
-    @JsonIgnore // BÜYÜ BURADA: Arka pencereyi de kapattık!
+    @JsonIgnore // Arka pencereyi de kapattık!
     private Book book;
 
     @Enumerated(EnumType.STRING)

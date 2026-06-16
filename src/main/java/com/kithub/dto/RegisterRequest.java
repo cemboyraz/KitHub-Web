@@ -13,6 +13,6 @@ public record RegisterRequest(
         String email,
 
         @NotBlank(message = "Şifre boş bırakılamaz!")
-        @Size(min = 6, message = "Şifre en az 6 karakter olmalıdır!")
+        @Size(min = 10, message = "Şifre en az 10 karakter olmalıdır!")
         String password
 ) { }

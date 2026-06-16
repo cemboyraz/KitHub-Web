@@ -37,6 +37,11 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("Hata: Email veya şifre yanlış!"));
 
+        //  Şifresine bakmadan önce adam banlı mı diye kontrol et!
+        if (user.isBlacklisted()) {
+            throw new RuntimeException("Hata: Hesabınız kural ihlali sebebiyle kalıcı olarak yasaklanmıştır!");
+        }
+
         //Veritabanındaki hash ile kullanıcının girdiğini karşılaştırır
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new RuntimeException("Hata: Email veya şifre yanlış!");
@@ -45,6 +50,7 @@ public class AuthService {
         return jwtService.generateToken(user.getEmail());
     }
     public String logout() {
+
         return "Sistemden başarıyla çıkış yapıldı.";
     }
 

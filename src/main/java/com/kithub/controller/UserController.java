@@ -59,4 +59,20 @@ public class UserController {
     public ResponseEntity<String> banUser(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.banUser(userId));
     }
+    @GetMapping("/me")
+    public ResponseEntity<java.util.Map<String, String>> getCurrentUser(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails) {
+
+        // JWT'den gelen email ile kullanıcıyı DB'den buluyoruz
+        com.kithub.model.User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı"));
+
+        // Frontend'e gerçek ve taze veriyi gönderiyoruz
+        java.util.Map<String, String> response = new java.util.HashMap<>();
+        response.put("username", user.getUsername());
+        response.put("role", user.getRole().name());
+        response.put("email", user.getEmail());
+
+        return ResponseEntity.ok(response);
+    }
 }
